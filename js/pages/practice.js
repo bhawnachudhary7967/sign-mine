@@ -1,0 +1,24 @@
+import {SIGNS} from '../signs.js';import {stage,vid} from '../hand.js';import {SPR} from '../mobs.js';
+import {page,app,$,T,shuf} from '../ui.js';import {favs,award,prof,miss,addMiss,clearMiss} from '../store.js';import {sfx} from '../sound.js';import {boom} from '../boom.js';
+let Z=null;export const stopRound=()=>{Z=null};
+export const pPractice=()=>page('practice',`<h1>Practice</h1><div class="modes">${[['quiz','🎯','Quick quiz','8 questions, 10 XP each. Wrong answer = creeper!'],['speed','⚡','Speed round','30 seconds, answer fast, 3 XP each. Best: '+prof().best],['cards','🃏','Flashcards','Review your ♥ favourites or all signs'],['sentences','💬','Sentences','55 short sentences, +10 XP once each']].map(([h,i,t,d])=>`<a class="card" href="#/${h}"><span style="font-size:28px">${i}</span><h2>${t}</h2><small>${d}</small></a>`).join('')}</div>`);
+const vk=s=>[s.f,s.t,s.l,s.m].join();
+// no repeats within a round; 40% of the time re-asks signs you got wrong; distractors never look identical to the answer
+const mk=ex=>{const M=miss(),al=SIGNS.filter(s=>!ex.includes(s)),mw=al.filter(s=>M[s.w]),pl=mw.length&&Math.random()<.4?mw:al,s=pl[Math.random()*pl.length|0],o=[];
+for(const x of shuf(SIGNS))if(o.length<2&&x!=s&&vk(x)!=vk(s)&&o.every(y=>vk(y)!=vk(x)))o.push(x);return{s,t:Math.random()<.5?1:0,o:shuf([s,...o])}};
+export function round(mode){stopRound();clearInterval(T.id);const sp=mode=='speed',it=[];if(sp)it.push(mk([]));else for(let i=0;i<8;i++)it.push(mk(it.map(q=>q.s)));
+const z=Z={sp,i:0,ok:0,a:0,left:30,it};if(sp)T.id=setInterval(()=>{if(Z!==z)return;z.left--;const e=$('#tm');if(e)e.textContent=z.left+'s';if(z.left<=0)fin()},1000);ask()}
+function ask(){if(!Z)return;if(!Z.sp&&Z.i>=Z.it.length)return fin();const it=Z.it[Z.i];Z.a=0;
+app.innerHTML=`<div class="wrap q"><div class="bar"><a class="btn" href="#/practice">✕</a>${Z.sp?`<span class="tm" id="tm">${Z.left}s</span>`:`<span>${Z.i+1}/${Z.it.length}</span>`}<span>✓ ${Z.ok}</span></div>${Z.sp?'':`<div class="progress"><i style="width:${Z.i/Z.it.length*100}%"></i></div>`}${it.t?`<h2 class="center">Which one is “${it.s.w}”?</h2>`:`<h2 class="center">What does this sign mean?</h2>${stage(it.s,SPR.steve)}`}${it.o.map(o=>`<button class="opt" data-z="${o==it.s?1:0}">${it.t?stage(o,SPR.steve):o.w}</button>`).join('')}<div id="fb"></div></div>`;
+document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>pick(b));
+onkeydown=e=>{const i='123'.indexOf(e.key);if(i>=0){const b=document.querySelectorAll('.opt')[i];b&&pick(b)}else if((e.key=='Enter'||e.key==' ')&&$('#nx')){e.preventDefault();$('#nx').click()}}}
+function feed(ok,s){$('#fb').innerHTML=`<div class="card"><b>${ok?'Nice! ✓':'Not quite: it was '+s.w}</b><p>${s.d}</p>${vid(s)}<br><button class="go" id="nx" style="margin-top:10px">Next</button></div>`;$('#nx').onclick=()=>{if(Z){Z.i++;ask()}}}
+function pick(b){if(!Z||Z.a)return;Z.a=1;const z=Z,ok=b.dataset.z=='1',s=z.it[z.i].s;b.classList.add(ok?'ok':'bad');
+const next=()=>{if(Z!==z)return;if(z.sp){z.i++;z.it.push(mk([s]));ask()}else feed(ok,s)};
+if(ok){z.ok++;clearMiss(s.w);sfx.ok();z.sp?setTimeout(next,450):next()}else{addMiss(s.w);sfx.boom();boom(next,z.sp)}}
+function fin(){clearInterval(T.id);const z=Z;if(!z)return;Z=null;const xp=z.ok*(z.sp?3:10),pf=!z.sp&&z.ok==z.it.length,win=z.ok>=(z.sp?8:5);award(xp,{perfect:pf,quiz:!z.sp,speed:z.sp,score:z.sp?z.ok:0});win?sfx.win():sfx.bad();
+app.innerHTML=`<section class="hero"><div class="mob big">${win?SPR.allay:SPR.creeper}</div><h1>${z.ok}${z.sp?' correct':'/'+z.it.length}</h1><p>+${xp} XP ${pf?'· Perfect! 🎯':''}</p><div class="btns"><a class="btn go" href="#/${z.sp?'speed':'quiz'}" id="ag">Again</a><a class="btn" href="#/">Home</a></div></section>`;$('#ag').onclick=e=>{e.preventDefault();round(z.sp?'speed':'quiz')};gsap.from('.mob',{scale:0,ease:'back.out',duration:.6})}
+export function pCards(){const fv=favs(),pool=shuf(fv.length?SIGNS.filter(s=>fv.includes(s.w)):SIGNS);let i=0,open=0;
+const draw=()=>{if(i>=pool.length){page('practice',`<h1>Deck complete 🎉</h1><p>${pool.length} cards reviewed.</p><div class="btns"><a class="btn go" id="rp" href="#/cards">Again</a><a class="btn" href="#/practice">Back</a></div>`);$('#rp').onclick=e=>{e.preventDefault();pCards()};return}
+const s=pool[i];page('practice',`<h1>Flashcards</h1><small>${fv.length?'♥ Favourites':'All signs'} · card ${i+1}/${pool.length}</small><div class="card flash" id="fc">${stage(s,SPR.steve)}${open?`<h2>${s.w}</h2><p>${s.d}</p>`:'<small>Tap the card to reveal</small>'}</div><div class="row" style="margin-top:12px"><button id="ag">Again</button><button class="go" id="gt">Got it +1 XP</button></div>`);
+$('#fc').onclick=()=>{open=!open;draw()};$('#ag').onclick=()=>{pool.push(s);i++;open=0;draw()};$('#gt').onclick=()=>{award(1,{fc:1});sfx.ok();i++;open=0;draw()}};draw()}
